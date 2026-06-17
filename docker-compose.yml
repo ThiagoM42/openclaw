@@ -4,7 +4,7 @@ services:
   openclaw:
     build: .
 
-    container_name: openclaw
+    # container_name: openclaw
 
     restart: unless-stopped
 
