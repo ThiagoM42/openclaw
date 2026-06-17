@@ -1,73 +1,64 @@
-version: '3.8'
+version: "3.9"
 
 services:
   openclaw:
-    image: moltbot/moltbot:2026.1.24
-    tty: true
-    # --- MODO MANUTENÇÃO (Ativar para config inicial) ---
-    # entrypoint: ["/bin/sh", "-c", "tail -f /dev/null"]
+    build: .
 
-    # --- MODO PRODUÇÃO ---
-    command: ["dist/index.js", "gateway", "--bind", "lan", "--port", "18789"]
-    working_dir: /app
-    user: root
-    restart: always
+    container_name: openclaw
+
+    restart: unless-stopped
 
     environment:
-      - NODE_ENV=production
-      - LOG_LEVEL=info
-      - TZ=America/Sao_Paulo
-      - OPENCLAW_GATEWAY_TOKEN=TokenInicial123
-      - OPENCLAW_PK=TOKENTESTE
-      - OPENCLAW_DOMAIN=${OPENCLAW_DOMAIN}
-      - OPENCLAW_GATEWAY_BIND=lan
-      - HOME=/root
-      - OPENCLAW_GATEWAY_TRUST_PROXY=true
-      - OPENCLAW_GATEWAY_EXTERNAL_URL=https://${OPENCLAW_DOMAIN}
-      - OPENCLAW_GATEWAY_CORS_ALLOWED_ORIGINS=https://${OPENCLAW_DOMAIN}
-      - OPENCLAW_GATEWAY_ALLOWED_ORIGINS=https://${OPENCLAW_DOMAIN}
+      AUTH_USERNAME: admin
+      AUTH_PASSWORD: ${AUTH_PASSWORD}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+
+      OPENCLAW_ALLOWED_ORIGINS: https://openclaw.infra-tms.cloud
+
+      BROWSER_CDP_URL: http://browser:9222
+      BROWSER_DEFAULT_PROFILE: openclaw
+      BROWSER_EVALUATE_ENABLED: "true"
+
+      OPENCLAW_NO_RESPAWN: "1"
 
     volumes:
-      - openclaw_config:/root/.clawdbot
-      - openclaw_workspace:/root/clawd
+      - ./openclaw:/root/.openclaw
+
+    depends_on:
+      - browser
 
     networks:
       - traefik
-      - clawdbot_internal
+      - openclaw_internal
 
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.openclaw.rule=Host(`openclaw.infra-tms.cloud`)
+      - traefik.http.routers.openclaw.entrypoints=websecure
+      - traefik.http.routers.openclaw.tls.certresolver=myresolver
+      - traefik.http.services.openclaw.loadbalancer.server.port=8080
 
-      # Router
-      - "traefik.http.routers.openclaw-rt.rule=Host(`${OPENCLAW_DOMAIN}`)"
-      - "traefik.http.routers.openclaw-rt.entrypoints=websecure"
-      - "traefik.http.routers.openclaw-rt.tls=true"
-      - "traefik.http.routers.openclaw-rt.tls.certresolver=leresolver"
+  browser:
+    image: coollabsio/openclaw-browser:latest
 
-      # Middlewares (definição)
-      - "traefik.http.middlewares.openclaw-cors.headers.accesscontrolallowmethods=GET,OPTIONS,PUT,POST,DELETE,PATCH"
-      - "traefik.http.middlewares.openclaw-cors.headers.accesscontrolalloworiginlist=https://${OPENCLAW_DOMAIN}"
-      - "traefik.http.middlewares.openclaw-cors.headers.accesscontrolallowheaders=*"
-      - "traefik.http.middlewares.openclaw-cors.headers.accesscontrolallowcredentials=true"
-      - "traefik.http.middlewares.openclaw-cors.headers.addvaryheader=true"
-      - "traefik.http.middlewares.openclaw-auth.headers.customrequestheaders.Authorization=Bearer TokenInicial123"
+    restart: unless-stopped
 
-      # Aplicação dos middlewares no router correto (openclaw-rt) com os nomes corretos
-      - "traefik.http.routers.openclaw-rt.middlewares=openclaw-cors,openclaw-auth"
+    shm_size: 2g
 
-      # Service
-      - "traefik.http.routers.openclaw-rt.service=openclaw-svc"
-      - "traefik.http.services.openclaw-svc.loadbalancer.server.port=18789"
+    environment:
+      TZ: America/Fortaleza
+      CHROME_CLI: "--remote-debugging-address=0.0.0.0 --remote-debugging-port=9222"
 
-volumes:
-  openclaw_config:
-    external: false
-  openclaw_workspace:
-    external: false
+    volumes:
+      - ./browser:/config
+
+    networks:
+      - openclaw_internal
 
 networks:
-  clawdbot_internal:
-    external: true
   traefik:
     external: true
+
+  openclaw_internal:
