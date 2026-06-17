@@ -1,37 +1,28 @@
 version: "3.9"
-
 services:
   openclaw:
-    build: .
-
-    # container_name: openclaw
-
+    image: coollabsio/openclaw:latest
     restart: unless-stopped
-
+    command: ["openclaw", "gateway", "start", "--allow-unconfigured"]
     environment:
+      OPENCLAW_HOME: /root/.openclaw
+      HOME: /root
+      OPENCLAW_NO_RESPAWN: "1"
       AUTH_USERNAME: admin
       AUTH_PASSWORD: ${AUTH_PASSWORD}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
-
       OPENCLAW_ALLOWED_ORIGINS: https://openclaw.infra-tms.cloud
-
       BROWSER_CDP_URL: http://browser:9222
       BROWSER_DEFAULT_PROFILE: openclaw
       BROWSER_EVALUATE_ENABLED: "true"
-
-      OPENCLAW_NO_RESPAWN: "1"
-
     volumes:
       - ./openclaw:/root/.openclaw
-
     depends_on:
       - browser
-
     networks:
       - traefik
       - openclaw_internal
-
     labels:
       - traefik.enable=true
       - traefik.docker.network=traefik
@@ -42,23 +33,17 @@ services:
 
   browser:
     image: coollabsio/openclaw-browser:latest
-
     restart: unless-stopped
-
     shm_size: 2g
-
     environment:
       TZ: America/Fortaleza
       CHROME_CLI: "--remote-debugging-address=0.0.0.0 --remote-debugging-port=9222"
-
     volumes:
       - ./browser:/config
-
     networks:
       - openclaw_internal
 
 networks:
   traefik:
     external: true
-
   openclaw_internal:
